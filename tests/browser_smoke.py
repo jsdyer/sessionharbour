@@ -2,7 +2,7 @@ from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 import json, os, shutil, tempfile, threading
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import sync_playwright, expect
 ROOT=Path(__file__).resolve().parents[1]
 class QuietHandler(SimpleHTTPRequestHandler):
     def log_message(self,*args):pass
@@ -30,7 +30,7 @@ def main():
                 assert Path(event.value.path()).read_text().count("<DT><A")==5
                 fixture=json.dumps({"tabs":[{"url":"https://private.invalid/account?secret=example","title":"<img src=x onerror=alert(1)>"},{"url":"javascript:alert(1)","title":"blocked"},{"url":"https://new.example/","title":"New source"}]}).encode()
                 page.locator("#file").set_input_files({"name":"private-session.json","mimeType":"application/json","buffer":fixture})
-                assert page.locator("#total").inner_text()=="2"
+                expect(page.locator("#total")).to_have_text("2")
                 assert page.locator("#results img").count()==0
                 assert "<img src=x" in page.locator("#results").inner_text()
                 assert not any("private.invalid" in u or "new.example" in u for u in requests)
