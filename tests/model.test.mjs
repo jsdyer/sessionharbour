@@ -1,21 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { cleanLines } from '../web/model.mjs';
-test('trims, removes blanks and preserves first-seen order', () => {
-  assert.deepEqual(cleanLines('  Halifax\nLangley\nHalifax\n\nVancouver  '), {
-    text: 'Halifax\nLangley\nVancouver', count: 3, removed: 1,
-  });
-});
-test('supports Windows and old Mac line endings', () => {
-  assert.equal(cleanLines('a\r\nb\ra').text, 'a\nb');
-});
-test('empty text and whitespace produce an empty result', () => {
-  assert.deepEqual(cleanLines(' \n\t'), { text: '', count: 0, removed: 0 });
-});
-test('preserves case and Unicode', () => {
-  assert.equal(cleanLines('Québec\nquébec\n東京\nQuébec').text, 'Québec\nquébec\n東京');
-});
-test('treats markup as ordinary text', () => {
-  assert.equal(cleanLines('<script>alert(1)</script>\n<script>alert(1)</script>').text, '<script>alert(1)</script>');
-});
-test('rejects non-text input', () => { assert.throws(() => cleanLines(null), TypeError); });
+import {safeURL,fromJSON,fromBookmarks,parseInput,selectTabs,exportBookmarks,exportJSON} from '../web/model.mjs';
+const bytes=s=>new TextEncoder().encode(s);
+test('unsafe schemes and embedded credentials excluded; arbitrary valid domains accepted',()=>{for(const u of ['javascript:alert(1)','file:///secret','data:text/html,hi','https://user:pass@example.com/'])assert.equal(safeURL(u),null);assert.equal(safeURL('https://new.example/path?q=1'),'https://new.example/path?q=1');});
+test('Firefox selected navigation and closed tabs handled',()=>{const r=fromJSON({windows:[{tabs:[{index:1,entries:[{url:'https://first.example',title:'First'},{url:'https://second.example',title:'Second'}]}],_closedTabs:[{url:'https://closed.example'}]}],closedWindows:[{tabs:[{url:'https://also-closed.example'}]}]});assert.equal(r.tabs.length,1);assert.equal(r.tabs[0].host,'first.example');});
+test('bookmark trees and portable JSON preserve labels without markup execution',()=>{const r=fromJSON({roots:{bookmark_bar:{name:'Research',children:[{url:'https://example.com/',name:'<script>hello</script>'}]}}});assert.equal(r.tabs[0].group,'Research');const again=fromJSON(JSON.parse(exportJSON(r.tabs)));assert.equal(again.tabs[0].group,'Research');const html=exportBookmarks(r.tabs);assert.ok(!html.includes('<script>'));assert.ok(html.includes('&lt;script&gt;'));});
+test('HTML parser decodes entities and excludes executable URLs',()=>{const r=fromBookmarks('<DL><DT><A HREF="https://example.com/?a=1&amp;b=2">A &amp; B</A><A HREF="javascript:alert(1)">bad</A></DL>');assert.equal(r.tabs[0].title,'A & B');assert.equal(r.tabs[0].url,'https://example.com/?a=1&b=2');assert.equal(r.excluded,1);});
+test('dedupe preserves queries and only ignores fragments by choice',()=>{const r=fromJSON([{url:'https://a.example/?id=1#x'},{url:'https://a.example/?id=1#y'},{url:'https://a.example/?id=2'},{url:'https://a.example/?id=2'}]).tabs;assert.equal(selectTabs(r,{dedupe:true}).length,3);assert.equal(selectTabs(r,{dedupe:true,ignoreFragment:true}).length,2);assert.equal(selectTabs(r,{duplicates:true}).length,2);});
+test('malformed input fails clearly and empty structured input is not invented',()=>{assert.throws(()=>parseInput(bytes('{bad')),/malformed/);assert.equal(parseInput(bytes('{}')).tabs.length,0);assert.throws(()=>parseInput(new Uint8Array([0,1,2,3])));});
+function i(n){const b=Buffer.alloc(4);b.writeInt32LE(n);return b;}
+function str(value,wide=false){const raw=Buffer.from(value,wide?'utf16le':'utf8');return Buffer.concat([i(wide?value.length:raw.length),raw,Buffer.alloc((4-raw.length%4)%4)]);}
+function command(id,body){const h=Buffer.alloc(3);h.writeUInt16LE(body.length+1);h[2]=id;return Buffer.concat([h,body]);}
+function nav(tab,index,url,title){const p=Buffer.concat([i(tab),i(index),str(url),str(title,true)]);return command(6,Buffer.concat([i(p.length),p]));}
+function snss(version,cmds){return Buffer.concat([Buffer.from('SNSS'),i(version),...cmds]);}
+test('SNSS parser uses selected navigation, honors closes and unicode titles',()=>{const raw=snss(3,[command(0,Buffer.concat([i(9),i(2)])),nav(2,0,'https://first.example/','Halifax 海'),nav(2,1,'https://later.example/','Later'),command(7,Buffer.concat([i(2),i(0)])),nav(3,0,'https://closed.example/','Closed'),command(16,i(3)),command(255,Buffer.alloc(0))]);const r=parseInput(raw);assert.equal(r.tabs.length,1);assert.equal(r.tabs[0].host,'first.example');assert.equal(r.tabs[0].title,'Halifax 海');assert.equal(r.tabs[0].group,'Window 9');});
+test('SNSS encryption and truncation never silently misrepresented',()=>{assert.throws(()=>parseInput(snss(5,[])),/encrypted/);assert.throws(()=>parseInput(snss(3,[Buffer.from([15,0,6,0])])),/Truncated/);assert.throws(()=>parseInput(snss(9,[])),/Unsupported/);});

@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "Session Harbour local tab exporter",
+  "version": "1.0.0",
+  "description": "Export open browser tabs to a local JSON file. No server or background script.",
+  "permissions": [
+    "tabs"
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  }
+}

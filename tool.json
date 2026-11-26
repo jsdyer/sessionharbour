@@ -1,16 +1,22 @@
 {
-  "id": "coolcode-tool-template",
-  "title": "CoolCode Tool Starter",
-  "description": "A browser-only example that trims lines and removes exact duplicates.",
-  "category": "security",
-  "tags": ["text", "lines", "duplicates"],
-  "icon": "scan-search",
-  "url": "/coolcode-tool-template/",
-  "source": "https://github.com/jsdyer/coolcode-tool-template",
+  "id": "sessionharbour",
+  "title": "Session Harbour",
+  "description": "Inspect and organize exported browser tabs and bookmarks privately, with duplicate detection and portable exports.",
+  "category": "projects",
+  "tags": [
+    "browser",
+    "tabs",
+    "bookmarks",
+    "session",
+    "privacy"
+  ],
+  "icon": "panels-top-left",
+  "url": "/sessionharbour/",
+  "source": "https://github.com/jsdyer/sessionharbour",
   "hosting": "project",
   "access": "browser",
   "data_info": {
     "mode": "local",
-    "detail": "The browser reads the text you paste and compares its lines."
+    "detail": "Browser-local parsing of visitor-selected session exports, bookmarks and URL lists."
   }
 }

@@ -1,37 +1,18 @@
-import { cleanLines } from './model.mjs';
-const input = document.querySelector('#input');
-const output = document.querySelector('#output');
-const status = document.querySelector('#status');
-const copy = document.querySelector('#copy');
-function update() {
-  const result = cleanLines(input.value);
-  output.value = result.text;
-  status.textContent = `${result.count} unique ${result.count === 1 ? 'line' : 'lines'}; ${result.removed} ${result.removed === 1 ? 'duplicate' : 'duplicates'} removed.`;
-  copy.disabled = result.count === 0;
+import {MAX_BYTES,parseInput,selectTabs,urlKey,exportBookmarks,exportJSON} from './model.mjs';
+const $=s=>document.querySelector(s);let tabs=[],selected=new Set(),shown=[],limit=100;
+const status=$('#status');
+function options(){return{query:$('#search').value,domain:$('#domain').value,duplicates:$('#duplicates').checked,dedupe:$('#dedupe').checked,ignoreFragment:$('#fragments').checked};}
+function render(){shown=selectTabs(tabs,options());const unique=new Set(tabs.map(t=>urlKey(t.url,$('#fragments').checked))).size;$('#total').textContent=tabs.length;$('#unique').textContent=unique;$('#domains').textContent=new Set(tabs.map(t=>t.host)).size;$('#summary').textContent=shown.length+' matching tabs · '+selected.size+' selected · displaying '+Math.min(limit,shown.length);$('#results').replaceChildren();
+ for(const tab of shown.slice(0,limit)){const row=document.createElement('article');row.className='tab';const check=document.createElement('input');check.type='checkbox';check.checked=selected.has(tab.id);check.setAttribute('aria-label','Select '+tab.title);check.onchange=()=>{if(check.checked)selected.add(tab.id);else selected.delete(tab.id);render();};const content=document.createElement('div'),a=document.createElement('a'),url=document.createElement('p'),meta=document.createElement('small');a.href=tab.url;a.target='_blank';a.rel='noopener noreferrer';a.referrerPolicy='no-referrer';a.textContent=tab.title;url.textContent=tab.url;meta.textContent=tab.host+' · '+tab.group+(tab.pinned?' · pinned':'');content.append(a,url,meta);row.append(check,content);$('#results').append(row);}
+ $('#more').hidden=shown.length<=limit;for(const id of ['bookmarks','json','links'])$('#'+id).disabled=selected.size===0;
 }
-input.addEventListener('input', update);
-document.querySelector('#sample').addEventListener('click', () => {
-  input.value = '  Halifax\nLangley\nHalifax\n\nVancouver  ';
-  update();
-});
-document.querySelector('#clear').addEventListener('click', () => {
-  input.value = '';
-  update();
-  input.focus();
-});
-if (navigator.clipboard && window.isSecureContext) {
-  copy.hidden = false;
-  copy.disabled = true;
-  copy.addEventListener('click', async () => {
-    try {
-      await navigator.clipboard.writeText(output.value);
-      status.textContent = 'Result copied.';
-    } catch {
-      output.focus();
-      output.select();
-      status.textContent = 'Copy was unavailable. The result is selected so you can copy it manually.';
-    }
-  });
-}
-// Namespace future preference storage as coolcode:<tool-id>:<key>.
-// Do not persist pasted text or uploads by default.
+function load(bytes){try{const result=parseInput(bytes);if(!result.tabs.length)throw new Error('No supported web URLs found. Only HTTP(S) links without embedded credentials can be opened or exported.');tabs=result.tabs;selected=new Set(tabs.map(t=>t.id));limit=100;$('#search').value='';$('#domain').replaceChildren(new Option('All domains',''));for(const host of [...new Set(tabs.map(t=>t.host))].sort())$('#domain').append(new Option(host,host));status.textContent=result.format+': '+tabs.length+' tabs loaded. '+result.excluded+' unsupported or credential-bearing links excluded. '+result.warnings.join(' ');render();}catch(err){status.textContent=err.message;}}
+$('#file').onchange=async e=>{const file=e.target.files[0];if(file){if(file.size>MAX_BYTES)status.textContent='Maximum file size is 20 MB.';else load(await file.arrayBuffer());}e.target.value='';};
+$('#paste-load').onclick=()=>load(new TextEncoder().encode($('#paste').value));
+$('#sample').onclick=()=>load(new TextEncoder().encode(JSON.stringify({windows:[{tabs:[{url:'https://coolcode.ca/',title:'CoolCode · useful tools'},{url:'https://www.halifax.ca/transportation/halifax-transit',title:'Halifax Transit'},{url:'https://coolcode.ca/',title:'CoolCode · duplicate tab'}]},{tabs:[{url:'https://www.loc.gov/',title:'Library of Congress'},{url:'https://www.europeana.eu/en',title:'Europeana collections'},{url:'https://coolcode.ca/sessionharbour/#example',title:'Session Harbour guide'}]}]})));
+$('#clear').onclick=()=>{tabs=[];selected.clear();$('#paste').value='';$('#domain').replaceChildren(new Option('All domains',''));status.textContent='Cleared this tab’s imported data.';render();};
+for(const id of ['search','domain','duplicates','dedupe','fragments'])$('#'+id).addEventListener(id==='search'?'input':'change',()=>{limit=100;render();});
+$('#all').onclick=()=>{selected=new Set(shown.map(t=>t.id));render();};$('#none').onclick=()=>{selected.clear();render();};$('#more').onclick=()=>{limit+=100;render();};
+function download(kind){const chosen=tabs.filter(t=>selected.has(t.id));let data,type,name;if(kind==='bookmarks'){data=exportBookmarks(chosen);type='text/html';name='session-harbour-bookmarks.html';}else if(kind==='json'){data=exportJSON(chosen);type='application/json';name='session-harbour.json';}else{data=chosen.map(t=>t.url).join('\n');type='text/plain';name='session-harbour-links.txt';}const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([data],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);status.textContent='Exported '+chosen.length+' selected tabs. Imported data stays in this tab until cleared or closed.';}
+for(const id of ['bookmarks','json','links'])$('#'+id).onclick=()=>download(id);
+render();
