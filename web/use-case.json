@@ -1,0 +1,5 @@
+{
+  "slug": "duplicate-tabs",
+  "title": "Find Duplicate Tabs in a Browser Session",
+  "description": "Explore a small example session containing repeated links. Inspect the duplicated tabs, change the matching rules and export selected links. Choose your own session export to run the same comparison locally."
+}

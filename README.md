@@ -53,3 +53,7 @@ The production tool has no package dependencies. Test-only Playwright/Chromium r
 - [Storage versions and OS-bound encryption](https://chromium.googlesource.com/chromium/src/+/refs/heads/main/components/sessions/core/command_storage_backend.cc)
 
 The parser is an independent bounded implementation of the documented source layout; it is not a Chromium component or an official browser recovery service.
+
+## Ready-to-use example
+
+[Find Duplicate Tabs in a Browser Session](https://coolcode.ca/sessionharbour/duplicate-tabs.html) opens this scenario in the same tool. Explore a small example session containing repeated links. Inspect the duplicated tabs, change the matching rules and export selected links. Choose your own session export to run the same comparison locally.

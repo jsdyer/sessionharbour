@@ -15,4 +15,9 @@ for(const id of ['search','domain','duplicates','dedupe','fragments'])$('#'+id).
 $('#all').onclick=()=>{selected=new Set(shown.map(t=>t.id));render();};$('#none').onclick=()=>{selected.clear();render();};$('#more').onclick=()=>{limit+=100;render();};
 function download(kind){const chosen=tabs.filter(t=>selected.has(t.id));let data,type,name;if(kind==='bookmarks'){data=exportBookmarks(chosen);type='text/html';name='session-harbour-bookmarks.html';}else if(kind==='json'){data=exportJSON(chosen);type='application/json';name='session-harbour.json';}else{data=chosen.map(t=>t.url).join('\n');type='text/plain';name='session-harbour-links.txt';}const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([data],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);status.textContent='Exported '+chosen.length+' selected tabs. Imported data stays in this tab until cleared or closed.';}
 for(const id of ['bookmarks','json','links'])$('#'+id).onclick=()=>download(id);
+if (document.body.dataset.useCase === 'duplicate-tabs') {
+  $('#sample').click();
+  $('#duplicates').checked = true;
+}
+
 render();
